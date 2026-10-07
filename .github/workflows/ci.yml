@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: memoguard-engine/go.mod
-      - run: go work init ./memoguard-rules ./memoguard-engine
+      - run: go work init ./memoguard-engine
       - run: go work edit -replace=github.com/memoguard8876/memoguard-rules=./memoguard-rules
       - run: go test ./memoguard-engine/...
       - run: go vet ./memoguard-engine/...
