@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">MemoGuard</title>
+  <desc id="desc">A dark sculpted form encloses a blue data point behind a narrow privacy channel.</desc>
+  <mask id="channel" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+    <rect width="512" height="512" fill="#fff"/>
+    <path d="M48 368c21-48 57-79 119-98l192-56c39-11 68 7 72 35 4 30-16 52-57 62l-191 48c-60 15-96 34-123 76-21-22-24-44-12-67Z" fill="#000"/>
+  </mask>
+  <path d="M143 90c47-43 106-42 160-7l135 88c48 31 70 91 53 144-11 35-39 66-75 89L301 475c-56 34-122 27-174-15-51-41-71-99-54-158l31-124c10-39 19-69 39-88Z" fill="#20242b" mask="url(#channel)"/>
+  <circle cx="370" cy="261" r="24" fill="#1769ff"/>
+</svg>
