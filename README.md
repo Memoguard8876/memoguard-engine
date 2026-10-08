@@ -29,6 +29,6 @@ Input kinds are `envelope_xdr`, `memo_text`, `soroban_simulation`, and `decoded_
 
 The scanner rejects malformed XDR, JSON, and inputs above 2 MiB. Use it before transaction submission to prevent a leak. Scanning after submission is an audit only and cannot remove data from the ledger.
 
-Run `go test ./...` with access to the private, tagged `memoguard-rules` dependency. Go 1.26 is required.
+Run `go test ./...` with the tagged `memoguard-rules` dependency. Go 1.26 is required.
 
 Product PRD and architecture live in the parent `memguard/docs` folder in the local workspace.

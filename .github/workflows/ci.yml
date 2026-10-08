@@ -14,7 +14,7 @@ jobs:
           repository: Memoguard8876/memoguard-rules
           ref: v0.1.0
           path: memoguard-rules
-          token: ${{ secrets.MODULES_READ_TOKEN }}
+          token: ${{ secrets.MODULES_READ_TOKEN || github.token }}
       - uses: actions/setup-go@v5
         with:
           go-version-file: memoguard-engine/go.mod
