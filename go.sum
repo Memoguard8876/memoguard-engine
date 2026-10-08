@@ -14,8 +14,8 @@ github.com/klauspost/compress v1.17.6 h1:60eq2E/jlfwQXtvZEeBUYADs+BwKBWURIY+Gj2e
 github.com/klauspost/compress v1.17.6/go.mod h1:/dCuZOvVtNoHsyb+cuJD3itjs3NbnF6KH9zAO4BDxPM=
 github.com/manucorporat/sse v0.0.0-20160126180136-ee05b128a739 h1:ykXz+pRRTibcSjG1yRhpdSHInF8yZY/mfn+Rz2Nd1rE=
 github.com/manucorporat/sse v0.0.0-20160126180136-ee05b128a739/go.mod h1:zUx1mhth20V3VKgL5jbd1BSQcW4Fy6Qs4PZvQwRFwzM=
-github.com/memoguard8876/memoguard-rules v0.1.0 h1:TV2lZIX1pF90/KdKMYw/C0d+GJ4/khOpHED9Of/DwNw=
-github.com/memoguard8876/memoguard-rules v0.1.0/go.mod h1:DJD3xmWaOXXH/giP+AVOUYBKFEWjaqR0ka67c5MZFR0=
+github.com/memoguard8876/memoguard-rules v0.1.1 h1:V9F7ptRe/alonoFLv+GEdRCXTTH/ARX0F/z17EpRKNE=
+github.com/memoguard8876/memoguard-rules v0.1.1/go.mod h1:DJD3xmWaOXXH/giP+AVOUYBKFEWjaqR0ka67c5MZFR0=
 github.com/nxadm/tail v1.4.8 h1:nPr65rt6Y5JFSKQO7qToXr7pePgD6Gwiw05lkbyAQTE=
 github.com/nxadm/tail v1.4.8/go.mod h1:+ncqLTQzXmGhMZNUePPaPqPvBxHAIsmXswZKocGu+AU=
 github.com/onsi/ginkgo v1.16.5 h1:8xi0RTUf59SOSfEtZMvwTvXYMzG4gV23XVHOZiXNtnE=

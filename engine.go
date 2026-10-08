@@ -144,6 +144,15 @@ func extractEnvelope(encoded string) ([]field, error) {
 	if text, ok := envelope.Memo().GetText(); ok {
 		fields = append(fields, field{path: "transaction.memo.text", value: text})
 	}
+	if id, ok := envelope.Memo().GetId(); ok {
+		fields = append(fields, field{path: "transaction.memo.id", value: fmt.Sprint(uint64(id))})
+	}
+	if hash, ok := envelope.Memo().GetHash(); ok {
+		appendText(&fields, "transaction.memo.hash", hash[:])
+	}
+	if hash, ok := envelope.Memo().GetRetHash(); ok {
+		appendText(&fields, "transaction.memo.return", hash[:])
+	}
 	for i, op := range envelope.Operations() {
 		base := fmt.Sprintf("transaction.operations.%d", i)
 		if data, ok := op.Body.GetManageDataOp(); ok {
