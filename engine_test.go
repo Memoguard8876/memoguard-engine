@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -155,6 +156,32 @@ func TestStoredSyntheticXDRFixtures(t *testing.T) {
 				t.Fatalf("unexpected findings: %#v", report.Findings)
 			}
 		})
+	}
+}
+
+func TestExtractionLimitsFailClosed(t *testing.T) {
+	for _, input := range []string{
+		strings.Repeat(`{"a":`, maxDepth+1) + `"safe"` + strings.Repeat("}", maxDepth+1),
+		`{"value":"` + strings.Repeat("a", maxTextBytes+1) + `"}`,
+		`["a",` + strings.Repeat(`"a",`, maxFields-1) + `"a"]`,
+	} {
+		report, err := testScanner(t).Scan(context.Background(), Input{Kind: DecodedJSON, Payload: []byte(input)})
+		if !errors.Is(err, errExtractionLimit) || len(report.Findings) != 0 {
+			t.Fatalf("expected incomplete-scan error, got report=%#v err=%v", report, err)
+		}
+	}
+}
+
+func TestDecodedJSONPreservesNumericIDs(t *testing.T) {
+	policy := rules.Default()
+	policy.Rules = append(policy.Rules, rules.Rule{ID: "configured.id", Description: "Synthetic numeric ID", Remediation: "Use an opaque reference", Pattern: `\b123456789\b`, Scopes: []string{"transaction.customer_id"}, Severity: rules.Block, Confidence: rules.High})
+	scanner, err := New(policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report, err := scanner.Scan(context.Background(), Input{Kind: DecodedJSON, Payload: []byte(`{"customer_id":123456789}`)})
+	if err != nil || len(report.Findings) != 1 || report.Findings[0].FieldPath != "transaction.customer_id" {
+		t.Fatalf("report=%#v err=%v", report, err)
 	}
 }
 

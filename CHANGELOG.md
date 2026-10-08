@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.1 — 2026-10-08
+
+- Return an explicit error when supported input exceeds scan depth, field, or text limits instead of silently skipping it.
+- Preserve numeric values in decoded JSON for configured ID rules.
+
 ## v0.2.0 — 2026-10-08
 
 - Inspect numeric ID memos and printable hash/return memo bytes under configured rules.

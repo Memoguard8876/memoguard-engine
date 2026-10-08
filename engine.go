@@ -1,10 +1,12 @@
 package engine
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"regexp"
 	"sort"
 	"strings"
@@ -16,6 +18,11 @@ import (
 )
 
 const MaxInputBytes = 2 << 20
+const maxFields = 4096
+const maxDepth = 12
+const maxTextBytes = 64 << 10
+
+var errExtractionLimit = errors.New("supported input exceeds scan depth, field, or text limit")
 
 type Kind string
 
@@ -148,17 +155,23 @@ func extractEnvelope(encoded string) ([]field, error) {
 		fields = append(fields, field{path: "transaction.memo.id", value: fmt.Sprint(uint64(id))})
 	}
 	if hash, ok := envelope.Memo().GetHash(); ok {
-		appendText(&fields, "transaction.memo.hash", hash[:])
+		if err := appendText(&fields, "transaction.memo.hash", hash[:]); err != nil {
+			return nil, err
+		}
 	}
 	if hash, ok := envelope.Memo().GetRetHash(); ok {
-		appendText(&fields, "transaction.memo.return", hash[:])
+		if err := appendText(&fields, "transaction.memo.return", hash[:]); err != nil {
+			return nil, err
+		}
 	}
 	for i, op := range envelope.Operations() {
 		base := fmt.Sprintf("transaction.operations.%d", i)
 		if data, ok := op.Body.GetManageDataOp(); ok {
 			fields = append(fields, field{path: base + ".manage_data.name", value: string(data.DataName)})
 			if data.DataValue != nil {
-				appendText(&fields, base+".manage_data.value", []byte(*data.DataValue))
+				if err := appendText(&fields, base+".manage_data.value", []byte(*data.DataValue)); err != nil {
+					return nil, err
+				}
 			}
 		}
 		if options, ok := op.Body.GetSetOptionsOp(); ok && options.HomeDomain != nil {
@@ -167,12 +180,16 @@ func extractEnvelope(encoded string) ([]field, error) {
 		if invoke, ok := op.Body.GetInvokeHostFunctionOp(); ok {
 			if args, ok := invoke.HostFunction.GetInvokeContract(); ok {
 				for j, arg := range args.Args {
-					appendSCVal(&fields, fmt.Sprintf("%s.invoke_contract.args.%d", base, j), arg, 0)
+					if err := appendSCVal(&fields, fmt.Sprintf("%s.invoke_contract.args.%d", base, j), arg, 0); err != nil {
+						return nil, err
+					}
 				}
 			}
 			if args, ok := invoke.HostFunction.GetCreateContractV2(); ok {
 				for j, arg := range args.ConstructorArgs {
-					appendSCVal(&fields, fmt.Sprintf("%s.create_contract.constructor_args.%d", base, j), arg, 0)
+					if err := appendSCVal(&fields, fmt.Sprintf("%s.create_contract.constructor_args.%d", base, j), arg, 0); err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
@@ -180,42 +197,53 @@ func extractEnvelope(encoded string) ([]field, error) {
 	return fields, nil
 }
 
-func appendSCVal(fields *[]field, path string, value xdr.ScVal, depth int) {
-	if depth > 12 || len(*fields) > 4096 {
-		return
+func appendSCVal(fields *[]field, path string, value xdr.ScVal, depth int) error {
+	if depth > maxDepth || len(*fields) >= maxFields {
+		return errExtractionLimit
 	}
 	if text, ok := value.GetStr(); ok {
-		appendText(fields, path, []byte(text))
+		return appendText(fields, path, []byte(text))
 	}
 	if text, ok := value.GetSym(); ok {
-		appendText(fields, path, []byte(text))
+		return appendText(fields, path, []byte(text))
 	}
 	if bytes, ok := value.GetBytes(); ok {
-		appendText(fields, path, []byte(bytes))
+		return appendText(fields, path, []byte(bytes))
 	}
 	if vec, ok := value.GetVec(); ok && vec != nil {
 		for i, item := range *vec {
-			appendSCVal(fields, fmt.Sprintf("%s.vec.%d", path, i), item, depth+1)
+			if err := appendSCVal(fields, fmt.Sprintf("%s.vec.%d", path, i), item, depth+1); err != nil {
+				return err
+			}
 		}
 	}
 	if entries, ok := value.GetMap(); ok && entries != nil {
 		for i, entry := range *entries {
-			appendSCVal(fields, fmt.Sprintf("%s.map.%d.key", path, i), entry.Key, depth+1)
-			appendSCVal(fields, fmt.Sprintf("%s.map.%d.value", path, i), entry.Val, depth+1)
+			if err := appendSCVal(fields, fmt.Sprintf("%s.map.%d.key", path, i), entry.Key, depth+1); err != nil {
+				return err
+			}
+			if err := appendSCVal(fields, fmt.Sprintf("%s.map.%d.value", path, i), entry.Val, depth+1); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
-func appendText(fields *[]field, path string, data []byte) {
-	if len(data) == 0 || len(data) > 64<<10 || !utf8.Valid(data) {
-		return
+func appendText(fields *[]field, path string, data []byte) error {
+	if len(data) > maxTextBytes || len(*fields) >= maxFields {
+		return errExtractionLimit
+	}
+	if len(data) == 0 || !utf8.Valid(data) {
+		return nil
 	}
 	for _, r := range string(data) {
 		if r < 0x20 && r != '\n' && r != '\t' {
-			return
+			return nil
 		}
 	}
 	*fields = append(*fields, field{path: path, value: string(data)})
+	return nil
 }
 
 type simulation struct {
@@ -242,9 +270,13 @@ func extractSimulation(data []byte) ([]field, error) {
 		}
 		if body, ok := event.Event.Body.GetV0(); ok {
 			for j, topic := range body.Topics {
-				appendSCVal(&fields, fmt.Sprintf("simulation.events.%d.topics.%d", i, j), topic, 0)
+				if err := appendSCVal(&fields, fmt.Sprintf("simulation.events.%d.topics.%d", i, j), topic, 0); err != nil {
+					return nil, err
+				}
 			}
-			appendSCVal(&fields, fmt.Sprintf("simulation.events.%d.data", i), body.Data, 0)
+			if err := appendSCVal(&fields, fmt.Sprintf("simulation.events.%d.data", i), body.Data, 0); err != nil {
+				return nil, err
+			}
 		}
 	}
 	for i, item := range result.Results {
@@ -255,31 +287,45 @@ func extractSimulation(data []byte) ([]field, error) {
 		if err := xdr.SafeUnmarshalBase64(*item.XDR, &value); err != nil {
 			return nil, fmt.Errorf("invalid simulation result %d XDR", i)
 		}
-		appendSCVal(&fields, fmt.Sprintf("simulation.results.%d.return_value", i), value, 0)
+		if err := appendSCVal(&fields, fmt.Sprintf("simulation.results.%d.return_value", i), value, 0); err != nil {
+			return nil, err
+		}
 	}
 	return fields, nil
 }
 
 func extractJSON(data []byte) ([]field, error) {
 	var value any
-	if err := json.Unmarshal(data, &value); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(&value); err != nil {
+		return nil, errors.New("invalid decoded JSON")
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
 		return nil, errors.New("invalid decoded JSON")
 	}
 	fields := make([]field, 0, 8)
-	appendJSON(&fields, "transaction", value, 0)
+	if err := appendJSON(&fields, "transaction", value, 0); err != nil {
+		return nil, err
+	}
 	return fields, nil
 }
 
-func appendJSON(fields *[]field, path string, value any, depth int) {
-	if depth > 12 || len(*fields) > 4096 {
-		return
+func appendJSON(fields *[]field, path string, value any, depth int) error {
+	if depth > maxDepth || len(*fields) >= maxFields {
+		return errExtractionLimit
 	}
 	switch typed := value.(type) {
 	case string:
-		appendText(fields, path, []byte(typed))
+		return appendText(fields, path, []byte(typed))
+	case json.Number:
+		return appendText(fields, path, []byte(typed.String()))
 	case []any:
 		for i, item := range typed {
-			appendJSON(fields, fmt.Sprintf("%s.%d", path, i), item, depth+1)
+			if err := appendJSON(fields, fmt.Sprintf("%s.%d", path, i), item, depth+1); err != nil {
+				return err
+			}
 		}
 	case map[string]any:
 		keys := make([]string, 0, len(typed))
@@ -288,7 +334,10 @@ func appendJSON(fields *[]field, path string, value any, depth int) {
 		}
 		sort.Strings(keys)
 		for _, key := range keys {
-			appendJSON(fields, path+"."+key, typed[key], depth+1)
+			if err := appendJSON(fields, path+"."+key, typed[key], depth+1); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
