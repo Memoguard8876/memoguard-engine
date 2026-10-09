@@ -2,6 +2,8 @@
 
 # memoguard-engine
 
+[![Go CI](https://github.com/Memoguard8876/memoguard-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Memoguard8876/memoguard-engine/actions/workflows/ci.yml)
+
 Reusable Go engine for inspecting Stellar transaction data before submission.
 
 ## Owns
@@ -29,8 +31,10 @@ Input kinds are `envelope_xdr`, `memo_text`, `soroban_simulation`, and `decoded_
 
 The scanner rejects malformed XDR, JSON, inputs above 2 MiB, and supported content that exceeds depth, field, or text limits. These cases return an error rather than a clean report. Numeric values in decoded JSON can be checked by configured rules. Use the scanner before transaction submission to prevent a leak. Scanning after submission is an audit only and cannot remove data from the ledger.
 
-Run `go test ./...` with the tagged `memoguard-rules` dependency. Go 1.26 is required.
+Run `go test ./...` and `go vet ./...` with Go 1.26.3 or newer. The tagged `memoguard-rules` dependency is public; no module token is needed.
 
-Product PRD and architecture live in the parent `memguard/docs` folder in the local workspace.
+The public [product requirements](https://github.com/Memoguard8876/memoguard-cli/blob/main/product/docs/PRD.md), [architecture](https://github.com/Memoguard8876/memoguard-cli/blob/main/product/docs/ARCHITECTURE.md), and [Wave plan](https://github.com/Memoguard8876/memoguard-cli/blob/main/product/docs/WAVE.md) live in `memoguard-cli`.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for changes, [SECURITY.md](SECURITY.md) for private vulnerability reports, and [LICENSE](LICENSE) for MIT terms.
+
+Maintainers: [Memoguard8876](https://github.com/Memoguard8876). Discuss public work in [issues](https://github.com/Memoguard8876/memoguard-engine/issues); report vulnerabilities privately through SECURITY.md.
