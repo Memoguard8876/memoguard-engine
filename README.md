@@ -41,7 +41,7 @@
 ## Install
 
 ```bash
-go get github.com/memoguard8876/memoguard-engine@v0.2.1
+go get github.com/memoguard8876/memoguard-engine@v0.2.2
 ```
 
 Needs Go 1.26.3 or newer. The rules dependency is public, so no token is needed.
@@ -72,7 +72,7 @@ Treat a scan error as a failure, not a pass.
 | Kind | Payload |
 | --- | --- |
 | `envelope_xdr` | Base64 transaction envelope |
-| `soroban_simulation` | The `result` object of a Stellar RPC `simulateTransaction` reply |
+| `soroban_simulation` | A Stellar RPC `simulateTransaction` reply: the full JSON-RPC reply or just its `result` object. Unrecognized input is an error, never a clean report |
 | `decoded_json` | Decoded transaction JSON (strings and numbers are scanned) |
 | `memo_text` | Memo string, scanned as `transaction.memo.text` |
 
@@ -136,8 +136,6 @@ Synthetic envelopes for tests live in [`testdata/`](testdata).
 
 A clean report covers only the supported fields above. It is not proof that a transaction holds no private data. There has been no formal audit or outside pilot.
 
-> **Known gap:** `soroban_simulation` expects the `result` object. Passing the full JSON-RPC reply (with `jsonrpc`, `id` and `result`) is read as having no events and reports clean. Unwrap `result` first.
-
 ## The MemoGuard family
 
 MemoGuard is four independent Go repositories. Each builds from tagged releases of the one before it.
@@ -149,7 +147,7 @@ memoguard-rules ──► memoguard-engine ──► memoguard-cli ──► mem
 | Repository | Role | Latest |
 | --- | --- | --- |
 | [memoguard-rules](https://github.com/Memoguard8876/memoguard-rules) | Policy schema, validation, built-in rules, expiring exceptions | v0.1.1 |
-| [memoguard-engine](https://github.com/Memoguard8876/memoguard-engine) | Stellar XDR decoding, field extraction, scanning, redacted findings | v0.2.1 |
+| [memoguard-engine](https://github.com/Memoguard8876/memoguard-engine) | Stellar XDR decoding, field extraction, scanning, redacted findings | v0.2.2 |
 | [memoguard-cli](https://github.com/Memoguard8876/memoguard-cli) | `memoguard scan` command, output formats, exit codes, release binaries | v0.2.2 |
 | [memoguard-action](https://github.com/Memoguard8876/memoguard-action) | GitHub Action: pinned CLI, annotations, failure threshold | v0.2.1 |
 

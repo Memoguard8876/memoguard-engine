@@ -133,6 +133,82 @@ func TestSimulationResultAndEventAreRedacted(t *testing.T) {
 	}
 }
 
+func syntheticSimulationResult(t *testing.T) map[string]any {
+	t.Helper()
+	value, err := xdr.NewScVal(xdr.ScValTypeScvString, xdr.ScString("person@example.com"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	encodedValue, err := xdr.MarshalBase64(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := xdr.NewContractEventBody(0, xdr.ContractEventV0{Topics: []xdr.ScVal{value}, Data: value})
+	if err != nil {
+		t.Fatal(err)
+	}
+	encodedEvent, err := xdr.MarshalBase64(xdr.DiagnosticEvent{Event: xdr.ContractEvent{Body: body}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return map[string]any{
+		"events":       []string{encodedEvent},
+		"results":      []map[string]any{{"auth": []string{}, "xdr": encodedValue}},
+		"latestLedger": 1,
+	}
+}
+
+func TestSimulationAcceptsBareResultAndJSONRPCReply(t *testing.T) {
+	result := syntheticSimulationResult(t)
+	reply := map[string]any{"jsonrpc": "2.0", "id": 1, "result": result}
+	for name, document := range map[string]map[string]any{"bare result": result, "json-rpc reply": reply} {
+		t.Run(name, func(t *testing.T) {
+			input, err := json.Marshal(document)
+			if err != nil {
+				t.Fatal(err)
+			}
+			report, err := testScanner(t).Scan(context.Background(), Input{Kind: SorobanSimulation, Payload: input})
+			if err != nil || len(report.Findings) != 3 || !report.Blocked() {
+				t.Fatalf("report=%#v err=%v", report, err)
+			}
+			output, _ := json.Marshal(report)
+			if strings.Contains(string(output), "person@example.com") {
+				t.Fatal("report repeats the matched value")
+			}
+		})
+	}
+}
+
+func TestSimulationFailsClosedOnUnrecognizedInput(t *testing.T) {
+	for name, input := range map[string]string{
+		"json-rpc error":          `{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"invalid"}}`,
+		"unrelated object":        `{"memo":"person@example.com"}`,
+		"empty object":            `{}`,
+		"empty result":            `{"jsonrpc":"2.0","id":1,"result":{}}`,
+		"null result":             `{"jsonrpc":"2.0","id":1,"result":null}`,
+		"result is not an object": `{"jsonrpc":"2.0","id":1,"result":"person@example.com"}`,
+		"array":                   `[]`,
+		"simulation error":        `{"error":"host function failed","latestLedger":1}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			report, err := testScanner(t).Scan(context.Background(), Input{Kind: SorobanSimulation, Payload: []byte(input)})
+			if err == nil || len(report.Findings) != 0 {
+				t.Fatalf("expected an error and no clean report, got report=%#v err=%v", report, err)
+			}
+			if strings.Contains(err.Error(), "person@example.com") {
+				t.Fatal("error repeats input")
+			}
+		})
+	}
+}
+
+func TestSimulationWithNoEventsIsClean(t *testing.T) {
+	report, err := testScanner(t).Scan(context.Background(), Input{Kind: SorobanSimulation, Payload: []byte(`{"events":[],"results":[],"latestLedger":1}`)})
+	if err != nil || len(report.Findings) != 0 {
+		t.Fatalf("report=%#v err=%v", report, err)
+	}
+}
+
 func TestStoredSyntheticXDRFixtures(t *testing.T) {
 	for _, test := range []struct {
 		name, wantPath string

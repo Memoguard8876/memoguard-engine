@@ -254,7 +254,42 @@ type simulation struct {
 	} `json:"results"`
 }
 
+// simulationKeys are the members a simulateTransaction result can carry. A
+// document with none of them is not recognizable as simulation output.
+var simulationKeys = []string{"events", "results", "error", "latestLedger", "transactionData", "minResourceFee", "restorePreamble", "stateChanges", "cost"}
+
+// simulationPayload returns the simulation result object. It accepts the bare
+// result object and a full JSON-RPC reply that wraps it in "result". Anything
+// else fails closed rather than scanning nothing.
+func simulationPayload(data []byte) ([]byte, error) {
+	var members map[string]json.RawMessage
+	if err := json.Unmarshal(data, &members); err != nil {
+		return nil, errors.New("invalid simulation JSON")
+	}
+	if _, rpc := members["jsonrpc"]; rpc || members["result"] != nil {
+		wrapped, ok := members["result"]
+		if !ok {
+			return nil, errors.New("simulation request failed")
+		}
+		data = wrapped
+		members = nil
+		if err := json.Unmarshal(data, &members); err != nil {
+			return nil, errors.New("invalid simulation JSON")
+		}
+	}
+	for _, key := range simulationKeys {
+		if _, ok := members[key]; ok {
+			return data, nil
+		}
+	}
+	return nil, errors.New("unrecognized simulation JSON")
+}
+
 func extractSimulation(data []byte) ([]field, error) {
+	data, err := simulationPayload(data)
+	if err != nil {
+		return nil, err
+	}
 	var result simulation
 	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, errors.New("invalid simulation JSON")
